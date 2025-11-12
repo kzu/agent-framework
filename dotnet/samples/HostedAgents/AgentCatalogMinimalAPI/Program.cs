@@ -8,15 +8,11 @@ using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
-using System.Text.Json.Serialization;
 
 var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT is not set.");
 var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME") ?? "gpt-4o-mini";
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-
-// Configure OpenAPI/Swagger
-builder.Services.AddOpenApi();
 
 // Add a chat client to the service collection
 builder.Services.AddSingleton(sp => new AzureOpenAIClient(
@@ -82,91 +78,16 @@ builder.AddAIAgent("experimental-agent", (sp, key) =>
 
 WebApplication app = builder.Build();
 
-// Configure the HTTP request pipeline
-app.MapOpenApi();
-
-// Create the /agents endpoint
 app.MapGet("/agents", async (AgentCatalog agentCatalog, CancellationToken cancellationToken) =>
 {
-    List<AgentInfo> agents = new List<AgentInfo>();
+    List<object> agents = new List<object>();
 
     await foreach (AIAgent agent in agentCatalog.GetAgentsAsync(cancellationToken))
     {
-        AgentInfo agentInfo = new AgentInfo
-        {
-            Name = agent.Name ?? "Unknown"
-        };
-
-        // Extract additional properties if they exist
-        if (agent.AdditionalProperties is not null)
-        {
-            if (agent.AdditionalProperties.TryGetValue("icon", out object? iconValue) && iconValue is string icon)
-            {
-                agentInfo.Icon = icon;
-            }
-
-            if (agent.AdditionalProperties.TryGetValue("beta", out object? betaValue) && betaValue is bool beta)
-            {
-                agentInfo.Beta = beta;
-            }
-
-            if (agent.AdditionalProperties.TryGetValue("visibility", out object? visibilityValue) && visibilityValue is string visibilityString &&
-                Enum.TryParse<AgentVisibility>(visibilityString, out AgentVisibility visibility))
-            {
-                agentInfo.Visibility = visibility;
-            }
-        }
-
-        agents.Add(agentInfo);
+        agents.Add(new { name = agent.Name, properties = agent.AdditionalProperties });
     }
 
-    return Results.Ok(agents);
-})
-.WithName("GetAgents")
-.WithOpenApi();
+    return agents;
+});
 
 app.Run();
-
-/// <summary>
-/// Represents information about an agent including its metadata and additional properties.
-/// </summary>
-internal sealed class AgentInfo
-{
-    /// <summary>
-    /// Gets or sets the name of the agent.
-    /// </summary>
-    public required string Name { get; set; }
-
-    /// <summary>
-    /// Gets or sets the URL to the agent's icon.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Icon { get; set; }
-
-    /// <summary>
-    /// Gets or sets whether the agent is in beta.
-    /// </summary>
-    public bool Beta { get; set; }
-
-    /// <summary>
-    /// Gets or sets the visibility of the agent.
-    /// </summary>
-    public AgentVisibility Visibility { get; set; }
-}
-
-/// <summary>
-/// Defines the visibility options for an agent.
-/// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
-internal enum AgentVisibility
-{
-    /// <summary>
-    /// The agent is visible to all users.
-    /// </summary>
-    Visible,
-
-    /// <summary>
-    /// The agent is unlisted and only accessible via direct reference.
-    /// </summary>
-    Unlisted
-}

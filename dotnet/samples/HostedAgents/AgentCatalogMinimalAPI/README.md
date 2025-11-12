@@ -4,20 +4,15 @@ This sample demonstrates how to create a minimal API application that uses the `
 
 ## Overview
 
-The sample creates a minimal ASP.NET Core web API with:
+The sample creates an absolutely minimal ASP.NET Core web API with:
 - Multiple AI agents registered with custom metadata
-- An `/agents` endpoint that returns a JSON list of all agents
-- Custom additional properties for each agent (icon URL, beta status, visibility)
+- An `/agents` endpoint that returns a JSON array of all agents with their names and additional properties
 
 ## Features
 
 - **AgentCatalog Integration**: Uses the `AgentCatalog` to enumerate all registered agents
-- **Custom Metadata**: Each agent includes additional properties:
-  - `icon`: A URL pointing to the agent's icon
-  - `beta`: A boolean indicating if the agent is in beta
-  - `visibility`: An enum (`Visible` or `Unlisted`) indicating the agent's visibility
-- **RESTful API**: Exposes a GET `/agents` endpoint that returns agent information as JSON
-- **OpenAPI/Swagger**: Includes OpenAPI documentation for easy API exploration
+- **Custom Metadata**: Each agent includes additional properties stored in `AdditionalProperties` dictionary
+- **Simple API**: Returns anonymous objects with agent name and properties - clients can handle the data as needed
 
 ## Prerequisites
 
@@ -46,12 +41,7 @@ export AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
    dotnet run
    ```
 
-3. Open a browser and navigate to the OpenAPI documentation:
-   ```
-   http://localhost:5000/openapi/v1.json
-   ```
-
-4. Test the `/agents` endpoint:
+3. Test the `/agents` endpoint:
    ```bash
    curl http://localhost:5000/agents
    ```
@@ -62,21 +52,27 @@ export AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
 [
   {
     "name": "weather-agent",
-    "icon": "https://example.com/icons/weather.png",
-    "beta": false,
-    "visibility": "Visible"
+    "properties": {
+      "icon": "https://example.com/icons/weather.png",
+      "beta": false,
+      "visibility": "Visible"
+    }
   },
   {
     "name": "travel-agent",
-    "icon": "https://example.com/icons/travel.png",
-    "beta": true,
-    "visibility": "Visible"
+    "properties": {
+      "icon": "https://example.com/icons/travel.png",
+      "beta": true,
+      "visibility": "Visible"
+    }
   },
   {
     "name": "experimental-agent",
-    "icon": "https://example.com/icons/experimental.png",
-    "beta": true,
-    "visibility": "Unlisted"
+    "properties": {
+      "icon": "https://example.com/icons/experimental.png",
+      "beta": true,
+      "visibility": "Unlisted"
+    }
   }
 ]
 ```
@@ -87,8 +83,7 @@ The sample demonstrates:
 
 1. **Agent Registration**: Multiple agents are registered using `builder.AddAIAgent()` with custom additional properties
 2. **AgentCatalog Usage**: The `AgentCatalog` service is injected into the endpoint handler
-3. **Metadata Extraction**: Additional properties are extracted from each agent and mapped to a response model
-4. **Type Safety**: Uses strongly-typed classes and enums for the API response
+3. **Simple Response**: Returns anonymous objects with `name` and `properties` - clients handle parsing as needed
 
 ## Key Concepts
 
