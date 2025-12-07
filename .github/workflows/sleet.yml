@@ -1,0 +1,60 @@
+﻿# Builds a final release version and pushes to nuget.org 
+# whenever a release is published.
+# Requires: secrets.NUGET_API_KEY
+
+name: sleet
+on:
+  release:
+    types: [prereleased, released]
+  push:
+    branches: [ main, dev, 'dev/*', 'feature/*', 'rel/*' ]
+    paths-ignore:
+      - changelog.md
+      - readme.md
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      configuration:
+        type: choice
+        description: Configuration
+        options: 
+        - Release
+        - Debug
+      sha:
+        description: 'Optional commit to deploy (latest if empty)'
+      version:
+        description: 'SemVer version to use (42.42.[build]-pre if empty)'
+
+env:
+  DOTNET_NOLOGO: true
+  Configuration: ${{ github.event.inputs.configuration || 'Release' }}
+  PackOnBuild: true
+  GeneratePackageOnBuild: true
+  VersionOrTag: ${{ github.event.inputs.version || github.event.release.tag_name || format('42.42.{0}-pre', github.run_number) }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  MSBUILDTERMINALLOGGER: auto
+  PackageOutputPath: ${{ github.workspace }}/bin
+     
+run-name: ${{ github.event.inputs.version || github.event.release.tag_name || format('42.42.{0}-pre', github.run_number) }}
+
+jobs:
+  build:
+    runs-on: ${{ vars.PUBLISH_AGENT || 'ubuntu-latest' }}
+    steps:
+      - name: 🤘 checkout
+        uses: actions/checkout@v4
+
+      - name: 📝 version
+        run: echo "Version=${VersionOrTag/v}" >> $GITHUB_ENV
+
+      - name: 🙏 build
+        run: dotnet build dotnet/agent-framework-release.slnf -p:Version=${{ env.Version }} -p:PackageVersion=${{ env.Version }} -p:GitTag=${{ env.Version }} 
+
+      - name: 🚀 sleet
+        env:
+          SLEET_CONNECTION: ${{ secrets.SLEET_CONNECTION }}
+        if: env.SLEET_CONNECTION != ''
+        run: |
+          dotnet tool update sleet -g --allow-downgrade --version $(curl -s --compressed ${{ vars.SLEET_FEED_URL }} | jq '.["sleet:version"]' -r)        
+          sleet push bin --config none -f --verbose -p "SLEET_FEED_CONTAINER=nuget" -p "SLEET_FEED_CONNECTIONSTRING=${{ secrets.SLEET_CONNECTION }}" -p "SLEET_FEED_TYPE=azure" || echo "No packages found"
