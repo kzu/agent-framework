@@ -14,7 +14,7 @@ namespace Microsoft.Agents.AI;
 /// identifier, display name, operational instructions, and a descriptive summary. It can be used to store and transfer
 /// agent-related metadata within a chat application.
 /// </remarks>
-public sealed class ChatClientAgentOptions
+public class ChatClientAgentOptions
 {
     /// <summary>
     /// Gets or sets the agent id.
