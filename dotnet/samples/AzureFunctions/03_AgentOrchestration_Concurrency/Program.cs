@@ -7,7 +7,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AzureFunctions;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Hosting;
-using OpenAI;
+using OpenAI.Chat;
 
 // Get the Azure OpenAI endpoint and deployment name from environment variables.
 string endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")
@@ -28,8 +28,8 @@ const string PhysicistInstructions = "You are an expert in physics. You answer q
 const string ChemistName = "ChemistAgent";
 const string ChemistInstructions = "You are an expert in chemistry. You answer questions from a chemistry perspective.";
 
-AIAgent physicistAgent = client.GetChatClient(deploymentName).CreateAIAgent(PhysicistInstructions, PhysicistName);
-AIAgent chemistAgent = client.GetChatClient(deploymentName).CreateAIAgent(ChemistInstructions, ChemistName);
+AIAgent physicistAgent = client.GetChatClient(deploymentName).AsAIAgent(PhysicistInstructions, PhysicistName);
+AIAgent chemistAgent = client.GetChatClient(deploymentName).AsAIAgent(ChemistInstructions, ChemistName);
 
 using IHost app = FunctionsApplication
     .CreateBuilder(args)

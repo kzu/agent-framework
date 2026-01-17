@@ -5,9 +5,8 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Shared.Diagnostics;
-using OpenAI.Assistants;
 
-namespace OpenAI;
+namespace OpenAI.Assistants;
 
 /// <summary>
 /// Provides extension methods for OpenAI <see cref="AssistantClient"/>
@@ -31,7 +30,7 @@ public static class OpenAIAssistantClientExtensions
     /// <param name="services">An optional <see cref="IServiceProvider"/> to use for resolving services required by the <see cref="AIFunction"/> instances being invoked.</param>
     /// <returns>A <see cref="ChatClientAgent"/> instance that can be used to perform operations on the assistant.</returns>
     [Obsolete("The Assistants API has been deprecated. Please use the Responses API instead.")]
-    public static ChatClientAgent GetAIAgent(
+    public static ChatClientAgent AsAIAgent(
         this AssistantClient assistantClient,
         ClientResult<Assistant> assistantClientResult,
         ChatOptions? chatOptions = null,
@@ -43,7 +42,7 @@ public static class OpenAIAssistantClientExtensions
             throw new ArgumentNullException(nameof(assistantClientResult));
         }
 
-        return assistantClient.GetAIAgent(assistantClientResult.Value, chatOptions, clientFactory, services);
+        return assistantClient.AsAIAgent(assistantClientResult.Value, chatOptions, clientFactory, services);
     }
 
     /// <summary>
@@ -56,7 +55,7 @@ public static class OpenAIAssistantClientExtensions
     /// <param name="services">An optional <see cref="IServiceProvider"/> to use for resolving services required by the <see cref="AIFunction"/> instances being invoked.</param>
     /// <returns>A <see cref="ChatClientAgent"/> instance that can be used to perform operations on the assistant.</returns>
     [Obsolete("The Assistants API has been deprecated. Please use the Responses API instead.")]
-    public static ChatClientAgent GetAIAgent(
+    public static ChatClientAgent AsAIAgent(
         this AssistantClient assistantClient,
         Assistant assistantMetadata,
         ChatOptions? chatOptions = null,
@@ -124,7 +123,7 @@ public static class OpenAIAssistantClientExtensions
         }
 
         var assistant = assistantClient.GetAssistant(agentId, cancellationToken);
-        return assistantClient.GetAIAgent(assistant, chatOptions, clientFactory, services);
+        return assistantClient.AsAIAgent(assistant, chatOptions, clientFactory, services);
     }
 
     /// <summary>
@@ -157,7 +156,7 @@ public static class OpenAIAssistantClientExtensions
         }
 
         var assistantResponse = await assistantClient.GetAssistantAsync(agentId, cancellationToken).ConfigureAwait(false);
-        return assistantClient.GetAIAgent(assistantResponse, chatOptions, clientFactory, services);
+        return assistantClient.AsAIAgent(assistantResponse, chatOptions, clientFactory, services);
     }
 
     /// <summary>
@@ -171,7 +170,7 @@ public static class OpenAIAssistantClientExtensions
     /// <returns>A <see cref="ChatClientAgent"/> instance that can be used to perform operations on the assistant.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="assistantClientResult"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
     [Obsolete("The Assistants API has been deprecated. Please use the Responses API instead.")]
-    public static ChatClientAgent GetAIAgent(
+    public static ChatClientAgent AsAIAgent(
         this AssistantClient assistantClient,
         ClientResult<Assistant> assistantClientResult,
         ChatClientAgentOptions options,
@@ -183,7 +182,7 @@ public static class OpenAIAssistantClientExtensions
             throw new ArgumentNullException(nameof(assistantClientResult));
         }
 
-        return assistantClient.GetAIAgent(assistantClientResult.Value, options, clientFactory, services);
+        return assistantClient.AsAIAgent(assistantClientResult.Value, options, clientFactory, services);
     }
 
     /// <summary>
@@ -197,7 +196,7 @@ public static class OpenAIAssistantClientExtensions
     /// <returns>A <see cref="ChatClientAgent"/> instance that can be used to perform operations on the assistant.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="assistantMetadata"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
     [Obsolete("The Assistants API has been deprecated. Please use the Responses API instead.")]
-    public static ChatClientAgent GetAIAgent(
+    public static ChatClientAgent AsAIAgent(
         this AssistantClient assistantClient,
         Assistant assistantMetadata,
         ChatClientAgentOptions options,
@@ -283,7 +282,7 @@ public static class OpenAIAssistantClientExtensions
         }
 
         var assistant = assistantClient.GetAssistant(agentId, cancellationToken);
-        return assistantClient.GetAIAgent(assistant, options, clientFactory, services);
+        return assistantClient.AsAIAgent(assistant, options, clientFactory, services);
     }
 
     /// <summary>
@@ -323,7 +322,7 @@ public static class OpenAIAssistantClientExtensions
         }
 
         var assistantResponse = await assistantClient.GetAssistantAsync(agentId, cancellationToken).ConfigureAwait(false);
-        return assistantClient.GetAIAgent(assistantResponse, options, clientFactory, services);
+        return assistantClient.AsAIAgent(assistantResponse, options, clientFactory, services);
     }
 
     /// <summary>

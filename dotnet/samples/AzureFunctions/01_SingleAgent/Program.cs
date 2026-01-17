@@ -7,7 +7,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AzureFunctions;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Hosting;
-using OpenAI;
+using OpenAI.Chat;
 
 // Get the Azure OpenAI endpoint and deployment name from environment variables.
 string endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")
@@ -25,13 +25,13 @@ AzureOpenAIClient client = !string.IsNullOrEmpty(azureOpenAiKey)
 const string JokerName = "Joker";
 const string JokerInstructions = "You are good at telling jokes.";
 
-AIAgent agent = client.GetChatClient(deploymentName).CreateAIAgent(JokerInstructions, JokerName);
+AIAgent agent = client.GetChatClient(deploymentName).AsAIAgent(JokerInstructions, JokerName);
 
 // Configure the function app to host the AI agent.
 // This will automatically generate HTTP API endpoints for the agent.
 using IHost app = FunctionsApplication
     .CreateBuilder(args)
     .ConfigureFunctionsWebApplication()
-    .ConfigureDurableAgents(options => options.AddAIAgent(agent))
+    .ConfigureDurableAgents(options => options.AddAIAgent(agent, timeToLive: TimeSpan.FromHours(1)))
     .Build();
 app.Run();

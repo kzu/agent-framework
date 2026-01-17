@@ -13,7 +13,7 @@ using Microsoft.Agents.AI.DurableTask;
 using Microsoft.Agents.AI.Hosting.AzureFunctions;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Hosting;
-using OpenAI;
+using OpenAI.Chat;
 
 // Get the Azure OpenAI endpoint and deployment name from environment variables.
 string endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")
@@ -28,13 +28,13 @@ AzureOpenAIClient client = !string.IsNullOrEmpty(azureOpenAiKey)
     : new AzureOpenAIClient(new Uri(endpoint), new AzureCliCredential());
 
 // Define three AI agents we are going to use in this application.
-AIAgent agent1 = client.GetChatClient(deploymentName).CreateAIAgent("You are good at telling jokes.", "Joker");
+AIAgent agent1 = client.GetChatClient(deploymentName).AsAIAgent("You are good at telling jokes.", "Joker");
 
 AIAgent agent2 = client.GetChatClient(deploymentName)
-    .CreateAIAgent("Check stock prices.", "StockAdvisor");
+    .AsAIAgent("Check stock prices.", "StockAdvisor");
 
 AIAgent agent3 = client.GetChatClient(deploymentName)
-    .CreateAIAgent("Recommend plants.", "PlantAdvisor", description: "Get plant recommendations.");
+    .AsAIAgent("Recommend plants.", "PlantAdvisor", description: "Get plant recommendations.");
 
 using IHost app = FunctionsApplication
     .CreateBuilder(args)

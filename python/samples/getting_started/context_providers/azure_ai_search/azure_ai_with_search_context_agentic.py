@@ -110,7 +110,7 @@ async def main() -> None:
         AzureAIAgentClient(
             project_endpoint=project_endpoint,
             model_deployment_name=model_deployment,
-            async_credential=AzureCliCredential(),
+            credential=AzureCliCredential(),
         ) as client,
         ChatAgent(
             chat_client=client,
@@ -120,7 +120,7 @@ async def main() -> None:
                 "Use the provided context from the knowledge base to answer complex "
                 "questions that may require synthesizing information from multiple sources."
             ),
-            context_providers=[search_provider],
+            context_provider=search_provider,
         ) as agent,
     ):
         print("=== Azure AI Agent with Search Context (Agentic Mode) ===\n")

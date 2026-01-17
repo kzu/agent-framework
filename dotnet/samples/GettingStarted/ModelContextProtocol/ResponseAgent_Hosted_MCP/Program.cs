@@ -8,7 +8,7 @@ using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using OpenAI;
+using OpenAI.Responses;
 
 var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT is not set.");
 var deploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME") ?? "gpt-4o-mini";
@@ -30,14 +30,14 @@ var mcpTool = new HostedMcpServerTool(
 AIAgent agent = new AzureOpenAIClient(
     new Uri(endpoint),
     new AzureCliCredential())
-     .GetOpenAIResponseClient(deploymentName)
-     .CreateAIAgent(
+     .GetResponsesClient(deploymentName)
+     .AsAIAgent(
         instructions: "You answer questions by searching the Microsoft Learn content only.",
         name: "MicrosoftLearnAgent",
         tools: [mcpTool]);
 
 // You can then invoke the agent like any other AIAgent.
-AgentThread thread = agent.GetNewThread();
+AgentThread thread = await agent.GetNewThreadAsync();
 Console.WriteLine(await agent.RunAsync("Please summarize the Azure AI Agent documentation related to MCP Tool calling?", thread));
 
 // **** MCP Tool with Approval Required ****
@@ -57,14 +57,14 @@ var mcpToolWithApproval = new HostedMcpServerTool(
 AIAgent agentWithRequiredApproval = new AzureOpenAIClient(
     new Uri(endpoint),
     new AzureCliCredential())
-    .GetOpenAIResponseClient(deploymentName)
-    .CreateAIAgent(
+    .GetResponsesClient(deploymentName)
+    .AsAIAgent(
         instructions: "You answer questions by searching the Microsoft Learn content only.",
         name: "MicrosoftLearnAgentWithApproval",
         tools: [mcpToolWithApproval]);
 
 // You can then invoke the agent like any other AIAgent.
-var threadWithRequiredApproval = agentWithRequiredApproval.GetNewThread();
+var threadWithRequiredApproval = await agentWithRequiredApproval.GetNewThreadAsync();
 var response = await agentWithRequiredApproval.RunAsync("Please summarize the Azure AI Agent documentation related to MCP Tool calling?", threadWithRequiredApproval);
 var userInputRequests = response.UserInputRequests.ToList();
 
