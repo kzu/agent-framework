@@ -351,7 +351,7 @@ public sealed class GitHubCopilotAgentTests
                     intVal = 100,
                     floatVal = 3.14,
                     objVal = new { nested = "value" },
-                    arrayVal = new[] { 1, 2, 3 }
+                    arrayVal = new List<int> { 1, 2, 3 }
                 })
             }
         };
