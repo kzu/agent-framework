@@ -494,18 +494,18 @@ public sealed class GitHubCopilotAgent : AIAgent, IAsyncDisposable
             arguments[property.Name] = property.Value.ValueKind switch
             {
                 JsonValueKind.String => property.Value.GetString(),
-                 JsonValueKind.True => true,
-                 JsonValueKind.False => false,
-                 JsonValueKind.Null => null,
-                 JsonValueKind.Number => property.Value.TryGetInt64(out long l)
-                     ? (object?)l
-                     : property.Value.GetDouble(),
-                 JsonValueKind.Object => property.Value.Clone(),
-                 JsonValueKind.Array => property.Value.Clone(),
-                 JsonValueKind.Undefined => null,
-                 _ => property.Value.GetRawText()
-             };
-         }
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null,
+                JsonValueKind.Number => property.Value.TryGetInt64(out long l)
+                    ? (object?)l
+                    : property.Value.GetDouble(),
+                JsonValueKind.Object => property.Value.Clone(),
+                JsonValueKind.Array => property.Value.Clone(),
+                JsonValueKind.Undefined => null,
+                _ => property.Value.GetRawText()
+            };
+        }
 
         return arguments;
     }
