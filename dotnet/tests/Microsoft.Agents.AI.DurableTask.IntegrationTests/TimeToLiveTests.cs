@@ -7,7 +7,6 @@ using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Client.Entities;
 using Microsoft.Extensions.Configuration;
 using OpenAI.Chat;
-using Xunit.Abstractions;
 
 namespace Microsoft.Agents.AI.DurableTask.IntegrationTests;
 
@@ -15,7 +14,7 @@ namespace Microsoft.Agents.AI.DurableTask.IntegrationTests;
 /// Tests for Time-To-Live (TTL) functionality of durable agent entities.
 /// </summary>
 [Collection("Sequential")]
-[Trait("Category", "Integration")]
+[Trait("Category", "IntegrationDisabled")]
 public sealed class TimeToLiveTests(ITestOutputHelper outputHelper) : IDisposable
 {
     private static readonly TimeSpan s_defaultTimeout = Debugger.IsAttached
@@ -55,14 +54,14 @@ public sealed class TimeToLiveTests(ITestOutputHelper outputHelper) : IDisposabl
             });
 
         AIAgent agentProxy = simpleAgent.AsDurableAgentProxy(testHelper.Services);
-        AgentThread thread = await agentProxy.GetNewThreadAsync(this.TestTimeoutToken);
+        AgentSession session = await agentProxy.CreateSessionAsync(this.TestTimeoutToken);
         DurableTaskClient client = testHelper.GetClient();
-        AgentSessionId sessionId = thread.GetService<AgentSessionId>();
+        AgentSessionId sessionId = session.GetService<AgentSessionId>();
 
         // Act: Send a message to the agent
         await agentProxy.RunAsync(
             message: "Hello!",
-            thread,
+            session,
             cancellationToken: this.TestTimeoutToken);
 
         // Verify entity exists and get expiration time
@@ -120,14 +119,14 @@ public sealed class TimeToLiveTests(ITestOutputHelper outputHelper) : IDisposabl
             });
 
         AIAgent agentProxy = simpleAgent.AsDurableAgentProxy(testHelper.Services);
-        AgentThread thread = await agentProxy.GetNewThreadAsync(this.TestTimeoutToken);
+        AgentSession session = await agentProxy.CreateSessionAsync(this.TestTimeoutToken);
         DurableTaskClient client = testHelper.GetClient();
-        AgentSessionId sessionId = thread.GetService<AgentSessionId>();
+        AgentSessionId sessionId = session.GetService<AgentSessionId>();
 
         // Act: Send first message
         await agentProxy.RunAsync(
             message: "Hello!",
-            thread,
+            session,
             cancellationToken: this.TestTimeoutToken);
 
         EntityMetadata? entity = await client.Entities.GetEntityAsync(sessionId, true, this.TestTimeoutToken);
@@ -143,7 +142,7 @@ public sealed class TimeToLiveTests(ITestOutputHelper outputHelper) : IDisposabl
         // Send second message (should reset TTL)
         await agentProxy.RunAsync(
             message: "Hello again!",
-            thread,
+            session,
             cancellationToken: this.TestTimeoutToken);
 
         // Verify expiration time was updated

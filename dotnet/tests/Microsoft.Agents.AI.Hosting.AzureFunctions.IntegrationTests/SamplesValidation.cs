@@ -8,7 +8,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
-using Xunit.Abstractions;
 
 namespace Microsoft.Agents.AI.Hosting.AzureFunctions.IntegrationTests;
 
@@ -22,21 +21,31 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
     private const string RedisPort = "6379";
 
     private static readonly string s_dotnetTargetFramework = GetTargetFramework();
+
+#if DEBUG
+    private const string BuildConfiguration = "Debug";
+#else
+    private const string BuildConfiguration = "Release";
+#endif
     private static readonly HttpClient s_sharedHttpClient = new();
     private static readonly IConfiguration s_configuration =
         new ConfigurationBuilder()
-            .AddUserSecrets(Assembly.GetExecutingAssembly())
             .AddEnvironmentVariables()
+            .AddUserSecrets(Assembly.GetExecutingAssembly())
             .Build();
 
     private static bool s_infrastructureStarted;
     private static readonly TimeSpan s_orchestrationTimeout = TimeSpan.FromMinutes(1);
+
+    // In CI, `dotnet run` builds the Functions project from scratch before the host starts, so 60s is not enough.
+    private static readonly TimeSpan s_functionsReadyTimeout = TimeSpan.FromSeconds(180);
+
     private static readonly string s_samplesPath = Path.GetFullPath(
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "samples", "AzureFunctions"));
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "samples", "04-hosting", "DurableAgents", "AzureFunctions"));
 
     private readonly ITestOutputHelper _outputHelper = outputHelper;
 
-    async Task IAsyncLifetime.InitializeAsync()
+    async ValueTask IAsyncLifetime.InitializeAsync()
     {
         if (!s_infrastructureStarted)
         {
@@ -45,7 +54,7 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
         }
     }
 
-    async Task IAsyncLifetime.DisposeAsync()
+    async ValueTask IAsyncDisposable.DisposeAsync()
     {
         // Nothing to clean up
         await Task.CompletedTask;
@@ -73,12 +82,12 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
             Assert.NotEmpty(responseText);
             this._outputHelper.WriteLine($"Agent run response: {responseText}");
 
-            // The response headers should include the agent thread ID, which can be used to continue the conversation.
-            string? threadId = response.Headers.GetValues("x-ms-thread-id")?.FirstOrDefault();
-            Assert.NotNull(threadId);
-            Assert.NotEmpty(threadId);
+            // The response headers should include the agent session ID, which can be used to continue the conversation.
+            string? sessionId = response.Headers.GetValues("x-ms-thread-id")?.FirstOrDefault();
+            Assert.NotNull(sessionId);
+            Assert.NotEmpty(sessionId);
 
-            this._outputHelper.WriteLine($"Agent thread ID: {threadId}");
+            this._outputHelper.WriteLine($"Agent session ID: {sessionId}");
 
             // Wait for up to 30 seconds to see if the agent response is available in the logs
             await this.WaitForConditionAsync(
@@ -87,7 +96,7 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
                     lock (logs)
                     {
                         bool exists = logs.Any(
-                            log => log.Message.Contains("Response:") && log.Message.Contains(threadId));
+                            log => log.Message.Contains("Response:") && log.Message.Contains(sessionId));
                         return Task.FromResult(exists);
                     }
                 },
@@ -286,11 +295,11 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
             string startResponseText = await startResponse.Content.ReadAsStringAsync();
             this._outputHelper.WriteLine($"Agent response: {startResponseText}");
 
-            // The response should be deserializable as an AgentResponse object and have a valid thread ID
+            // The response should be deserializable as an AgentResponse object and have a valid session ID
             startResponse.Headers.TryGetValues("x-ms-thread-id", out IEnumerable<string>? agentIdValues);
-            string? threadId = agentIdValues?.FirstOrDefault();
-            Assert.NotNull(threadId);
-            Assert.NotEmpty(threadId);
+            string? sessionId = agentIdValues?.FirstOrDefault();
+            Assert.NotNull(sessionId);
+            Assert.NotEmpty(sessionId);
 
             // Wait for the orchestration to report that it's waiting for human approval
             await this.WaitForConditionAsync(
@@ -308,7 +317,7 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
                 timeout: TimeSpan.FromSeconds(60));
 
             // Approve the content
-            Uri approvalUri = new($"{runAgentUri}?thread_id={threadId}");
+            Uri approvalUri = new($"{runAgentUri}?thread_id={sessionId}");
             using HttpContent approvalContent = new StringContent("Approve the content", Encoding.UTF8, "text/plain");
             using HttpResponseMessage approvalResponse = await s_sharedHttpClient.PostAsync(approvalUri, approvalContent);
             Assert.True(approvalResponse.IsSuccessStatusCode, $"Approve content request failed with status: {approvalResponse.StatusCode}");
@@ -328,7 +337,7 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
                 timeout: TimeSpan.FromSeconds(60));
 
             // Verify the final orchestration status by asking the agent for the status
-            Uri statusUri = new($"{runAgentUri}?thread_id={threadId}");
+            Uri statusUri = new($"{runAgentUri}?thread_id={sessionId}");
             await this.WaitForConditionAsync(
                 condition: async () =>
                 {
@@ -793,13 +802,18 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
 
     private async Task RunSampleTestAsync(string samplePath, Func<IReadOnlyList<OutputLog>, Task> testAction)
     {
+        // Build the sample project first (it may not have been built as part of the solution)
+        await AzureFunctionsTestHelper.BuildSampleAsync(
+            samplePath, $"-f {s_dotnetTargetFramework} -c {BuildConfiguration}", this._outputHelper);
+
         // Start the Azure Functions app
         List<OutputLog> logsContainer = [];
         using Process funcProcess = this.StartFunctionApp(samplePath, logsContainer);
         try
         {
             // Wait for the app to be ready
-            await this.WaitForAzureFunctionsAsync();
+            await AzureFunctionsTestHelper.WaitForFunctionsReadyAsync(
+                funcProcess, AzureFunctionsPort, s_sharedHttpClient, this._outputHelper, s_functionsReadyTimeout, samplePath);
 
             // Run the test
             await testAction(logsContainer);
@@ -817,7 +831,7 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
         ProcessStartInfo startInfo = new()
         {
             FileName = "dotnet",
-            Arguments = $"run -f {s_dotnetTargetFramework} --port {AzureFunctionsPort}",
+            Arguments = $"run --no-build -f {s_dotnetTargetFramework} -c {BuildConfiguration} --port {AzureFunctionsPort}",
             WorkingDirectory = samplePath,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -826,12 +840,12 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
 
         string openAiEndpoint = s_configuration["AZURE_OPENAI_ENDPOINT"] ??
             throw new InvalidOperationException("The required AZURE_OPENAI_ENDPOINT env variable is not set.");
-        string openAiDeployment = s_configuration["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"] ??
-            throw new InvalidOperationException("The required AZURE_OPENAI_CHAT_DEPLOYMENT_NAME env variable is not set.");
+        string openAiDeployment = s_configuration["AZURE_OPENAI_DEPLOYMENT_NAME"] ??
+            throw new InvalidOperationException("The required AZURE_OPENAI_DEPLOYMENT_NAME env variable is not set.");
 
         // Set required environment variables for the function app (see local.settings.json for required settings)
         startInfo.EnvironmentVariables["AZURE_OPENAI_ENDPOINT"] = openAiEndpoint;
-        startInfo.EnvironmentVariables["AZURE_OPENAI_DEPLOYMENT"] = openAiDeployment;
+        startInfo.EnvironmentVariables["AZURE_OPENAI_DEPLOYMENT_NAME"] = openAiDeployment;
         startInfo.EnvironmentVariables["DURABLE_TASK_SCHEDULER_CONNECTION_STRING"] =
             $"Endpoint=http://localhost:{DtsPort};TaskHub=default;Authentication=None";
         startInfo.EnvironmentVariables["AzureWebJobsStorage"] = "UseDevelopmentStorage=true";
@@ -873,30 +887,6 @@ public sealed class SamplesValidation(ITestOutputHelper outputHelper) : IAsyncLi
         process.BeginOutputReadLine();
 
         return process;
-    }
-
-    private async Task WaitForAzureFunctionsAsync()
-    {
-        this._outputHelper.WriteLine(
-            $"Waiting for Azure Functions Core Tools to be ready at http://localhost:{AzureFunctionsPort}/...");
-        await this.WaitForConditionAsync(
-            condition: async () =>
-            {
-                try
-                {
-                    using HttpRequestMessage request = new(HttpMethod.Head, $"http://localhost:{AzureFunctionsPort}/");
-                    using HttpResponseMessage response = await s_sharedHttpClient.SendAsync(request);
-                    this._outputHelper.WriteLine($"Azure Functions Core Tools response: {response.StatusCode}");
-                    return response.IsSuccessStatusCode;
-                }
-                catch (HttpRequestException)
-                {
-                    // Expected when the app isn't yet ready
-                    return false;
-                }
-            },
-            message: "Azure Functions Core Tools is ready",
-            timeout: TimeSpan.FromSeconds(60));
     }
 
     private async Task WaitForOrchestrationCompletionAsync(Uri statusUri)
